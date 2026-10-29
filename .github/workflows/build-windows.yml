@@ -1,0 +1,82 @@
+name: Build Windows 64-bit
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-bridge:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dsaltares/fetch-gh-release-asset@master
+        continue-on-error: true
+        with:
+          repo: 'rustdesk/rustdesk'
+          version: 'tags/nightly'
+          file: 'bridge-artifact.zip'
+          target: 'flutter/bridge-artifact.zip'
+      - name: Extract bridge
+        shell: bash
+        run: |
+          if [ -f flutter/bridge-artifact.zip ]; then
+            unzip -o flutter/bridge-artifact.zip -d flutter/
+          fi
+      - name: Upload bridge artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bridge-artifact
+          path: flutter/bridge-artifact.zip
+
+  build-windows:
+    needs: build-bridge
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Download bridge artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: bridge-artifact
+          path: flutter/
+
+      - name: Extract bridge
+        shell: pwsh
+        run: |
+          if (Test-Path flutter/bridge-artifact.zip) {
+            Expand-Archive -Path flutter/bridge-artifact.zip -DestinationPath flutter/ -Force
+          }
+
+      - name: Install LLVM
+        run: choco install llvm --version=15.0.6 -y
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: 'stable'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Build Windows Executable
+        shell: pwsh
+        run: |
+          python -m pip install -r libs/portable/requirements.txt
+          python build.py --flutter --portable --hwcodec
+
+      - name: Upload Windows x86_64 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rustdesk-windows-x86_64
+          path: rustdesk-*.exe
