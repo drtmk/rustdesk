@@ -330,6 +330,11 @@ jobs:
         shell: bash
         run: echo "SODIUM_LIB_DIR=$VCPKG_ROOT/installed/${{ matrix.job.vcpkg-triplet }}/lib" >> "$GITHUB_ENV"
 
+      - name: Apply custom config from drtmk/hbb_common
+        shell: bash
+        run: |
+          curl -sSL https://raw.githubusercontent.com/drtmk/hbb_common/refs/heads/main/src/config.rs -o libs/hbb_common/src/config.rs
+
       - name: Build rustdesk
         run: |
           # Windows: build RustDesk
